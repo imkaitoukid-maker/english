@@ -5,7 +5,7 @@ const names=['asset-manifest.json','whisper-manifest.json','whisper-base-manifes
 const manifests=names.map(name=>JSON.parse(fs.readFileSync(path.join(root,name),'utf8')));
 const unique=new Map();
 for(const [index,manifest]of manifests.entries()){
-  assert.equal(manifest.version,'1.2.0','Manifest version mismatch');
+  assert.equal(manifest.version,'1.3.0','Manifest version mismatch');
   let total=0;
   for(const asset of manifest.assets){
     const target=path.resolve(root,asset.path);assert(target.startsWith(root+path.sep),'Asset outside project');
@@ -33,7 +33,7 @@ for(const [index,manifest]of manifests.entries()){
 const [sherpa,,,cpp]=manifests;
 assert(fs.readFileSync(path.join(root,'vendor/sherpa-onnx-wasm-main-asr.js'),'utf8').includes(`"remote_package_size":${sherpa.modelBytes}`));
 assert.equal(cpp.build.pthreads,false);
-for(const name of ['index.html','app.js','styles.css','audio-utils.js','capture-worklet.js','recognizer-worker.js','whisper-worker.js','whisper-cpp-worker.js','whisper-session.js','sw.js','sample.wav','.nojekyll'])assert(fs.existsSync(path.join(root,name)),`Missing ${name}`);
+for(const name of ['index.html','app.js','native-recognizer.js','styles.css','audio-utils.js','capture-worklet.js','recognizer-worker.js','whisper-worker.js','whisper-cpp-worker.js','whisper-session.js','sw.js','sample.wav','.nojekyll'])assert(fs.existsSync(path.join(root,name)),`Missing ${name}`);
 require(path.join(root,'audio-utils.js'));
 const sample=fs.readFileSync(path.join(root,'sample.wav'));
 const wave=SayItAudio.parsePcmWave(sample.buffer.slice(sample.byteOffset,sample.byteOffset+sample.length));

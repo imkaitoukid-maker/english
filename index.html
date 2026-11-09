@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#174c43">
-  <meta name="description" content="在浏览器本地把英文语音转成文字。为 iPad 上的英语短句练习制作。">
+  <meta name="description" content="用浏览器原生服务或本地模型把英文语音转成文字。为 iPad 上的英语短句练习制作。">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'">
   <title>Say it. — 英语语音输入</title>
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
@@ -15,7 +15,7 @@
   <div class="page-shell">
     <header class="site-header">
       <a class="brand" href="./" aria-label="Say it 首页"><span class="brand-mark" aria-hidden="true">s.</span> Say it<span class="brand-dot">.</span></a>
-      <span class="privacy-badge"><span class="status-dot"></span> 本地识别 · 音频不上传</span>
+      <span class="privacy-badge"><span class="status-dot"></span><span id="privacyText">浏览器语音服务 · 可能联网</span></span>
     </header>
 
     <main>
@@ -33,12 +33,17 @@
       </section>
 
       <section class="engine-panel" aria-label="切换识别引擎">
-        <div class="engine-heading"><span class="eyebrow">CHOOSE YOUR ENGINE</span><span>同一段示例，四种本地配置</span></div>
+        <div class="engine-heading"><span class="eyebrow">CHOOSE YOUR ENGINE</span><span>原生识别 + 四种本地配置</span></div>
         <div class="engine-tabs" role="group" aria-label="识别引擎">
-          <button id="sherpaEngine" type="button" data-engine="sherpa" aria-pressed="true"><strong>sherpa-onnx · Zipformer</strong><span>流式识别 · 边说边出字</span></button>
+          <button id="nativeEngine" type="button" data-engine="native" aria-pressed="true"><strong>浏览器原生 · 英语识别</strong><span>无需下载模型 · Safari / Android Chrome · Edge 可检测测试</span></button>
+          <button id="sherpaEngine" type="button" data-engine="sherpa" aria-pressed="false"><strong>sherpa-onnx · Zipformer</strong><span>流式识别 · 边说边出字</span></button>
           <button id="whisperEngine" type="button" data-engine="whisper" aria-pressed="false"><strong>Transformers.js · Whisper tiny.en q8</strong><span>短句分段 · 定期更新文字</span></button>
           <button id="whisperBaseEngine" type="button" data-engine="whisperBase" aria-pressed="false"><strong>Transformers.js · Whisper base.en q8</strong><span>更大英文模型 · 短句分段</span></button>
           <button id="whisperCppEngine" type="button" data-engine="whisperCpp" aria-pressed="false"><strong>whisper.cpp · base.en Q5_1</strong><span>更小模型文件 · 支持 initial_prompt</span></button>
+        </div>
+        <div id="nativeNotice" class="native-notice">
+          <p><strong>一次说一句英语。</strong>允许麦克风与语音权限，停顿后可能自动结束，下一句再次点击开始。iPhone/iPad 请使用 Safari 并检查 Siri 设置；Android 优先 Chrome。音频可能交给在线语音服务，不能保证离线。</p>
+          <p id="nativeSupport" role="status">正在检测浏览器语音接口…</p>
         </div>
         <div id="promptPanel" class="prompt-panel" hidden>
           <label for="initialPrompt">initial_prompt <span>可选 · whisper.cpp</span></label>
@@ -75,7 +80,7 @@
         </div>
       </section>
 
-      <section class="comparison-section" aria-label="四种配置最近一次结果">
+      <section class="comparison-section" aria-label="五种配置最近一次结果">
         <div class="summary-caption"><span class="eyebrow">SIDE BY SIDE</span><span>本次打开页面期间保留</span></div>
         <div id="comparisonResults" class="comparison-grid"></div>
         <p id="comparisonHint" class="comparison-hint">依次切换引擎并点击“示例音频自检”，即可用同一段英语对照。</p>
@@ -95,9 +100,9 @@
         </details>
       </section>
 
-      <footer class="site-footer"><p><span class="small-dot"></span> 模型在你的设备上运行。录音不会发送到服务器。</p><span>Say it. / English speech demo <span id="versionLabel">v1.2.0</span></span></footer>
+      <footer class="site-footer"><p><span class="small-dot"></span> <span id="privacyNote">音频由浏览器或系统语音服务处理，可能通过网络发送。</span></p><span>Say it. / English speech demo <span id="versionLabel">v1.3.0</span></span></footer>
     </main>
   </div>
-  <noscript>此演示需要启用 JavaScript 才能在浏览器中运行语音识别模型。</noscript>
+  <noscript>此演示需要启用 JavaScript 才能使用浏览器语音服务或本地模型。</noscript>
 </body>
 </html>

@@ -1,17 +1,20 @@
+import { NativeSpeechSession, nativeSpeechSupport, nativeSpeechError } from './native-recognizer.js';
 const $ = id => document.getElementById(id);
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 const ENGINES = {
+  native: { label:'浏览器原生 · 英语识别', native:true, limit:60, description:'无需下载本站模型；一次说一句，停顿后可能自动结束，可再次点击开始。音频由浏览器或系统语音服务处理，可能通过网络发送。' },
   sherpa: { label:'sherpa-onnx · Zipformer', worker:'recognizer-worker.js', manifest:'asset-manifest.json', type:'classic', limit:60, queueLimit:5, description:'流式识别，连续接收音频并更新文字。只加载当前引擎；切换后需重新初始化。' },
   whisper: { label:'Transformers.js · Whisper tiny.en q8', worker:'whisper-worker.js', manifest:'whisper-manifest.json', type:'module', limit:20, queueLimit:12, description:'WASM 单线程；约每 3 秒重算当前短句，停顿或点击完成后定稿。适合短句对照，单次最多 20 秒。' },
   whisperBase: { label:'Transformers.js · Whisper base.en q8', worker:'whisper-worker.js', manifest:'whisper-base-manifest.json', type:'module', limit:20, queueLimit:12, description:'Whisper base.en q8；WASM 单线程，约每 3 秒重算当前短句。比 tiny.en 更大，建议先试 5～10 秒短句。' },
   whisperCpp: { label:'whisper.cpp · base.en Q5_1', worker:'whisper-cpp-worker.js', manifest:'whisper-cpp-manifest.json', type:'module', limit:20, queueLimit:12, description:'Whisper base.en Q5_1；WASM SIMD 单线程，约每 3 秒重算当前短句。可填写 initial_prompt，为本轮提供词汇或上下文。' },
 };
-let selectedEngine = 'sherpa';
-const manifests = new Map();
+const requestedEngine = new URLSearchParams(location.search).get('engine');
+let selectedEngine = Object.prototype.hasOwnProperty.call(ENGINES, requestedEngine) ? requestedEngine : 'native';
+const manifests = new Map([['native',{model:'浏览器 / 系统语音服务（模型由浏览器管理）',runtimeVersion:'Web Speech API',totalBytes:0,assets:[]}]]);
 const engineHistory = Object.fromEntries(Object.keys(ENGINES).map(id => [id,{text:'',latest:null}]));
 const prompts = ["I'd like to practice my English today.", 'Could you help me find the library?', 'What do you like to do after school?', 'I think learning something new is exciting.'];
 const ui = Object.fromEntries(['primaryButton','primaryLabel','primaryIcon','sampleButton','stateBadge','recorderTitle','recorderHint','downloadPanel','downloadProgress','downloadLabel','downloadPercent','downloadNote','errorMessage','durationLabel','inputLabel','visualizer','emptyTranscript','finalText','partialText','wordCount','clearButton','copyButton','resultHint','sampleReference','referenceText','loadMetric','firstWordMetric','rtfMetric','queueMetric','deviceInfo','eventLog','exportButton'].map(id => [id, $(id)]));
-let state = 'idle', worker = null, modelReady = false, manifest = null;
+let state = 'idle', worker = null, modelReady = false, manifest = null, nativeSession = null;
 let rpcCounter = 0, sessionCounter = 0, activeSession = null, currentMode = null;
 let capture = null, timer = null, sentSeconds = 0, processedSeconds = 0, firstWordMs = null;
 let sessionStarted = 0, prefix = '', savedText = '', latestPartial = '', promptIndex = 0;
@@ -41,6 +44,18 @@ function setState(next) {
   document.querySelectorAll('[data-engine]').forEach(button => { button.disabled = !['idle','ready','error'].includes(next); });
   $('initialPrompt').disabled = !['idle','ready','error'].includes(next);
   if (next === 'recording') ui.recorderHint.textContent = selectedEngine !== 'sherpa' ? '约每 3 秒更新当前短句；点击完成后定稿，单次最多 20 秒。' : hint;
+  if (selectedEngine === 'native') {
+    ui.sampleButton.disabled = true;
+    if (['idle','ready','error'].includes(next)) {
+      if (next !== 'error') ui.stateBadge.textContent = '可以开始';
+      ui.primaryLabel.textContent = next === 'error' ? '重新开始识别' : '开始英语识别'; ui.primaryIcon.textContent = '●';
+      ui.recorderTitle.textContent = next === 'error' ? '再试一句' : '轮到你说了';
+      ui.recorderHint.textContent = '允许语音权限后，说一句英语；停顿后可能自动结束。';
+    }
+    if (next === 'requesting') { ui.primaryButton.disabled = false; ui.primaryLabel.textContent = '取消等待'; ui.primaryIcon.textContent = '×'; ui.recorderHint.textContent = '请允许麦克风和语音识别权限。首次等待可点击取消。'; }
+    if (next === 'recording') ui.recorderHint.textContent = '说一句英语；停顿后自动结束，或点击完成。下一句再次点击开始。';
+    if (next === 'stopping') ui.recorderHint.textContent = '正在等待浏览器返回最后的文字。';
+  }
   if (next !== 'recording') paintMeter(0);
 }
 function showError(error) {
@@ -69,12 +84,13 @@ function updateDeviceInfo() {
   const rows = [
     ['识别引擎', ENGINES[selectedEngine].label],
     ['识别模型', manifest?.model || '加载模型后显示'],
-    ['推理方式', selectedEngine !== 'sherpa' ? `${selectedEngine === 'whisperCpp' ? 'whisper.cpp' : 'Transformers.js'} · WASM CPU 单线程 · 短句分段` : 'WebAssembly SIMD · CPU 单线程 · 独立 Worker'],
+    ['推理方式', selectedEngine === 'native' ? '浏览器 / 系统语音服务 · 可能联网' : selectedEngine !== 'sherpa' ? `${selectedEngine === 'whisperCpp' ? 'whisper.cpp' : 'Transformers.js'} · WASM CPU 单线程 · 短句分段` : 'WebAssembly SIMD · CPU 单线程 · 独立 Worker'],
     ['采集方式', captureMethod],
-    ['音频采样', capture ? `${capture.context.sampleRate} Hz → 16000 Hz` : '录音开始后显示实际采样率'],
+    ['音频采样', selectedEngine === 'native' ? '由浏览器管理，不提供 PCM 采样率' : capture ? `${capture.context.sampleRate} Hz → 16000 Hz` : '录音开始后显示实际采样率'],
     ['安全页面', window.isSecureContext ? 'HTTPS / localhost' : '否（麦克风不可用）'],
     ['离线缓存', cacheStatus],
-    ['WASM 内存', metrics.heapUnavailable ? '此运行时未公开；不能据此比较整页内存' : metrics.heapBytes ? `${(metrics.heapBytes / 1024 / 1024).toFixed(1)} MiB（不含页面其他内存）` : '模型加载后显示'],
+    ['WASM 内存', selectedEngine === 'native' ? '此模式不加载本站 WASM 模型' : metrics.heapUnavailable ? '此运行时未公开；不能据此比较整页内存' : metrics.heapBytes ? `${(metrics.heapBytes / 1024 / 1024).toFixed(1)} MiB（不含页面其他内存）` : '模型加载后显示'],
+    ['语音识别接口', nativeSpeechSupport().apiName || '当前浏览器未提供'],
     ['浏览器', navigator.userAgent],
   ];
   ui.deviceInfo.replaceChildren();
@@ -85,6 +101,12 @@ function updateDeviceInfo() {
 }
 function updateMetrics(data) {
   metrics = { ...metrics, ...data };
+  if (selectedEngine === 'native') {
+    ui.loadMetric.textContent = '无需下载'; ui.rtfMetric.textContent = '未公开'; ui.queueMetric.textContent = '未公开';
+    ui.rtfMetric.dataset.warning = 'false'; ui.queueMetric.dataset.warning = 'false';
+    if (data.durationSeconds != null) ui.durationLabel.textContent = data.durationSeconds.toFixed(1) + ' s';
+    updateDeviceInfo(); return;
+  }
   if (data.loadMs != null) ui.loadMetric.textContent = formatMs(data.loadMs);
   if (data.rtf != null) {
     ui.rtfMetric.textContent = data.rtf.toFixed(2); ui.rtfMetric.dataset.warning = String(data.rtf >= 1);
@@ -249,6 +271,72 @@ async function cleanupCapture(flush = false) {
   if (capture === current) capture = null;
   await Promise.race([current.context.close().catch(() => {}), new Promise(resolve => setTimeout(resolve, 2000))]);
 }
+function nativeBrowserHint() {
+  const support = nativeSpeechSupport();
+  if (!support.supported) return '未检测到 SpeechRecognition 接口；请尝试 Safari / Android Chrome 或切换本地模型。';
+  const ua = navigator.userAgent;
+  const browser = /Android/i.test(ua) && /EdgA\//i.test(ua) ? 'Android Edge：兼容尝试，语音服务是否可用以本轮测试为准。'
+    : /Android/i.test(ua) ? 'Android：采用一次一句，浏览器自动结束后可再次开始。'
+    : /iPad|iPhone|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+      ? 'iPhone/iPad：请用 Safari，允许语音权限并检查 Siri 设置。' : '请直接录音测试当前浏览器的语音服务。';
+  return `已检测到 ${support.apiName}，英语 en-US。${browser}`;
+}
+function startNativeRecognition() {
+  if (selectedEngine !== 'native' || !['idle','ready','error'].includes(state)) return;
+  if (!isSecureContext) { showError(new DOMException('HTTPS required','SecurityError')); return; }
+  hideError(); prepareSession('microphone');
+  nativeSession?.cancel(false);
+  const id = activeSession;
+  captureMethod = `${nativeSpeechSupport().apiName || '无可用接口'} · 浏览器管理麦克风`;
+  setState('requesting'); updateMetrics({});
+  const run = new NativeSpeechSession({
+    onLog: text => log(text),
+    onStart: () => {
+      if (activeSession !== id || selectedEngine !== 'native' || document.hidden) { run.cancel(true,'background'); return; }
+      sessionStarted = performance.now(); setState('recording'); updateDeviceInfo();
+      ui.resultHint.textContent = '正在识别英语；浅色文字是临时结果';
+      log('原生英语识别已启动；音频由浏览器或系统服务处理，可能联网');
+      timer = setInterval(() => {
+        const seconds = Math.floor((performance.now() - sessionStarted) / 1000);
+        ui.durationLabel.textContent = `${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;
+        if (seconds >= ENGINES.native.limit) stopNativeRecognition('已达到本轮 60 秒上限');
+      },200);
+    },
+    onResult: data => {
+      if (activeSession !== id || selectedEngine !== 'native') return;
+      renderText(join(prefix,data.committed),data.partial);
+      if (firstWordMs == null && (data.committed || data.partial)) {
+        firstWordMs = performance.now() - sessionStarted; ui.firstWordMetric.textContent = formatMs(firstWordMs);
+      }
+    },
+    onEnd: result => {
+      if (activeSession !== id || selectedEngine !== 'native') return;
+      clearInterval(timer); nativeSession = null;
+      renderText(join(prefix,result.text)); saveSession({sessionId:id,...result},'microphone'); activeSession = null;
+      const failed = result.errorCode && !['no-speech','aborted'].includes(result.errorCode);
+      setState(failed ? 'error' : 'ready');
+      if (failed) showError(new Error(nativeSpeechError(result.errorCode)));
+      if (result.stopReason === 'background') ui.resultHint.textContent = '页面已切到后台，本轮已结束；返回后可再次点击开始';
+      else if (!result.durationSeconds && result.stopReason === 'user') ui.resultHint.textContent = '已取消等待；准备好后可再次开始';
+      else if (result.usedInterim) ui.resultHint.textContent = '已保留收到的文字，其中包含浏览器尚未确认的临时结果';
+      else ui.resultHint.textContent = result.text ? '本轮已结束；可以复制文字，或再次点击开始说下一句' : '没有识别到英语，请靠近麦克风后再次开始';
+      if (result.errorCode === 'no-speech') ui.recorderHint.textContent = nativeSpeechError('no-speech');
+      else if (result.stopReason === 'browser-end' && !failed) ui.recorderHint.textContent = '浏览器在停顿后结束本轮，这是移动端正常行为。下一句请再次点击开始。';
+      void checkOfflineCache();
+    },
+  });
+  nativeSession = run;
+  // Keep start() in the original button event: no await, model loading,
+  // getUserMedia or AudioContext call before it can consume iOS user activation.
+  run.start();
+}
+function stopNativeRecognition(reason) {
+  if (!nativeSession || !['requesting','recording'].includes(state)) return;
+  setState('stopping'); clearInterval(timer);
+  if (reason) log(reason);
+  nativeSession.stop('user');
+}
+
 function prepareSession(mode) {
   activeSession = ++sessionCounter; currentMode = mode; prefix = savedText;
   workerBusy = false; heldAudio = []; heldAudioLength = 0;
@@ -286,9 +374,11 @@ function saveSession(result, mode) {
   sessions.push(entry); sessions = sessions.slice(-30);
   engineHistory[selectedEngine].latest = entry; engineHistory[selectedEngine].text = savedText;
   renderComparison();
-  log(`${mode === 'sample' ? '示例自检' : '录音'}完成：音频 ${result.inputSeconds.toFixed(2)} s，识别计算 ${formatMs(result.computeMs)}，比值 ${result.rtf.toFixed(3)}`);
+  if (selectedEngine === 'native') log('原生识别结束：会话 ' + result.durationSeconds.toFixed(2) + ' s，原因 ' + result.stopReason + (result.errorCode ? '，错误 ' + result.errorCode : ''));
+  else log(`${mode === 'sample' ? '示例自检' : '录音'}完成：音频 ${result.inputSeconds.toFixed(2)} s，识别计算 ${formatMs(result.computeMs)}，比值 ${result.rtf.toFixed(3)}`);
 }
 async function stopRecording(reason) {
+  if (selectedEngine === 'native') { stopNativeRecognition(reason); return; }
   if (state !== 'recording') return;
   setState('stopping'); clearInterval(timer);
   if (reason) { log(reason); ui.recorderHint.textContent = reason; }
@@ -309,6 +399,7 @@ async function failSession(error) {
   destroyWorker(error); setState('error'); showError(error);
 }
 async function runSample() {
+  if (selectedEngine === 'native') return;
   if (!['idle','ready','error'].includes(state)) return;
   if (!modelReady && !await loadModel()) return;
   hideError(); setState('sample'); prepareSession('sample');
@@ -325,12 +416,13 @@ async function runSample() {
   } catch (error) { await failSession(error); }
 }
 async function checkOfflineCache() {
+  if (selectedEngine === 'native') { cacheStatus = '网页可缓存；语音服务可能联网，不能保证离线识别'; updateDeviceInfo(); return; }
   const checkingEngine = selectedEngine, checkingManifest = manifest;
   if (!checkingManifest) { cacheStatus = '正在读取资源清单，模型缓存尚未检查'; updateDeviceInfo(); return; }
   try {
     if (!('caches' in window) || !navigator.serviceWorker?.controller) { cacheStatus = '未启用，当前仍可在线加载并本地识别'; updateDeviceInfo(); return; }
     const cache = await caches.open(`say-it-${VERSION}`);
-    const names = ['./index.html','./app.js','./styles.css','./recognizer-worker.js','./whisper-worker.js','./whisper-cpp-worker.js','./whisper-session.js','./audio-utils.js','./capture-worklet.js','./sample.wav','./asset-manifest.json','./whisper-manifest.json','./whisper-base-manifest.json','./whisper-cpp-manifest.json', ...(checkingManifest?.assets || []).map(asset => './' + asset.path)];
+    const names = ['./index.html','./app.js','./styles.css','./recognizer-worker.js','./whisper-worker.js','./whisper-cpp-worker.js','./whisper-session.js','./native-recognizer.js','./audio-utils.js','./capture-worklet.js','./sample.wav','./asset-manifest.json','./whisper-manifest.json','./whisper-base-manifest.json','./whisper-cpp-manifest.json', ...(checkingManifest?.assets || []).map(asset => './' + asset.path)];
     const cached = await Promise.all(names.map(name => cache.match(new URL(name, import.meta.url).href)));
     if (checkingEngine !== selectedEngine) return;
     cacheStatus = cached.every(Boolean) ? '页面、引擎与模型已缓存；系统仍可能清理缓存' : `正在缓存（${cached.filter(Boolean).length}/${names.length}）`;
@@ -348,6 +440,11 @@ async function registerOffline() {
 }
 
 ui.primaryButton.addEventListener('click', () => {
+  if (selectedEngine === 'native') {
+    if (['idle','ready','error'].includes(state)) startNativeRecognition();
+    else if (['requesting','recording'].includes(state)) stopNativeRecognition();
+    return;
+  }
   if (state === 'idle' || state === 'error') void loadModel();
   else if (state === 'ready') void startRecording();
   else if (state === 'recording') void stopRecording();
@@ -372,10 +469,11 @@ ui.exportButton.addEventListener('click', () => {
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 });
 document.addEventListener('visibilitychange', () => {
+  if (document.hidden && selectedEngine === 'native' && nativeSession) { nativeSession.cancel(true, 'background'); return; }
   if (document.hidden && state === 'recording') void stopRecording('页面切到后台，已自动结束本轮录音。');
   else if (document.hidden && state === 'requesting') { setState('ready'); void cleanupCapture(); }
 });
-window.addEventListener('pagehide', () => { capture?.media?.getTracks().forEach(track => track.stop()); void cleanupCapture(); });
+window.addEventListener('pagehide', () => { nativeSession?.cancel(true, 'background'); nativeSession = null; clearInterval(timer); capture?.media?.getTracks().forEach(track => track.stop()); void cleanupCapture(); });
 
 function sessionPrompt() { return selectedEngine === 'whisperCpp' ? $('initialPrompt').value.trim() : ''; }
 function updateEngineUI() {
@@ -383,7 +481,18 @@ function updateEngineUI() {
   document.querySelectorAll('[data-engine]').forEach(button => { button.setAttribute('aria-pressed', String(button.dataset.engine === selectedEngine)); });
   $('engineDescription').textContent = ENGINES[selectedEngine].description;
   manifest = manifests.get(selectedEngine) || null;
-  ui.downloadNote.textContent = manifest ? `此引擎首次下载约 ${(manifest.totalBytes / 1000000).toFixed(1)} MB；只加载所选模型，录音不上传。` : '仅加载所选引擎，模型资源可缓存在本机。';
+  const native = selectedEngine === 'native';
+  $('privacyText').textContent = native ? '浏览器语音服务 · 可能联网' : '本地识别 · 音频不上传';
+  $('privacyNote').textContent = native ? '音频由浏览器或系统语音服务处理，可能通过网络发送。' : '模型在你的设备上运行。录音不会发送到服务器。';
+  $('nativeNotice').hidden = !native;
+  $('nativeSupport').textContent = nativeBrowserHint();
+  ui.sampleButton.textContent = native ? '原生模式请直接录音' : '用示例音频自检 ↗';
+  ui.loadMetric.previousElementSibling.textContent = native ? '本站模型' : '模型准备';
+  ui.loadMetric.nextElementSibling.textContent = native ? '直接调用浏览器语音服务' : '下载、初始化与预热';
+  ui.rtfMetric.nextElementSibling.textContent = native ? '浏览器不提供识别计算时长' : '越小越好，持续输入应低于 1';
+  ui.queueMetric.nextElementSibling.textContent = native ? '浏览器不提供待处理音频量' : '持续增长表示设备跟不上';
+  if (native) updateMetrics({});
+  ui.downloadNote.textContent = native ? '无需下载本站模型，无需 API Key；语音服务可能联网。' : manifest ? `此引擎首次下载约 ${(manifest.totalBytes / 1000000).toFixed(1)} MB；只加载所选模型，录音不上传。` : '仅加载所选引擎，模型资源可缓存在本机。';
   updateDeviceInfo();
 }
 function renderComparison() {
@@ -393,27 +502,30 @@ function renderComparison() {
     const card = document.createElement('article'); card.className = 'comparison-card'; card.dataset.engineResult = id;
     const heading = document.createElement('h3'); heading.textContent = profile.label;
     const meta = document.createElement('p'); meta.className = 'comparison-meta';
-    meta.textContent = result ? `${result.mode === 'sample' ? '同一段合成语音自检' : '最近一次麦克风输入'} · 首字 ${result.firstWordMs == null ? '—' : formatMs(result.firstWordMs)}${result.mode === 'sample' ? ' *' : ''} · 计算比 ${result.rtf.toFixed(2)}${result.initialPrompt ? ' · 已用 prompt' : ''}` : '尚未测试';
-    const text = document.createElement('p'); text.className = 'comparison-text'; text.lang = 'en'; text.textContent = result?.text || 'Run a self-check to compare.';
+    meta.textContent = result ? `${result.mode === 'sample' ? '同一段合成语音自检' : '最近一次麦克风输入'} · 首字 ${result.firstWordMs == null ? '—' : formatMs(result.firstWordMs)}${result.mode === 'sample' ? ' *' : ''} · ${typeof result.rtf === 'number' ? '计算比 ' + result.rtf.toFixed(2) : '计算时间由浏览器管理'}${result.usedInterim ? ' · 含临时文字' : ''}${result.initialPrompt ? ' · 已用 prompt' : ''}` : '尚未测试';
+    const text = document.createElement('p'); text.className = 'comparison-text'; text.lang = 'en'; text.textContent = result?.text || (id === 'native' ? 'Say a short sentence to compare.' : 'Run a self-check to compare.');
     card.append(heading, meta, text); container.append(card);
   }
-  const bothSamples = Object.values(engineHistory).every(history => history.latest?.mode === 'sample');
-  $('comparisonHint').textContent = bothSamples ? '各项均为同一段示例。* 首字是自检处理时间；使用 prompt 的结果另有标记，录音模式更适合比较交互延迟。' : '依次切换引擎并点击“示例音频自检”，即可用同一段英语对照。不同录音的数字不宜直接比较。';
+  const bothSamples = Object.entries(engineHistory).filter(([id]) => id !== 'native').every(([,history]) => history.latest?.mode === 'sample');
+  $('comparisonHint').textContent = bothSamples ? '四项本地模型均为同一段示例；原生模式需麦克风输入。* 首字是自检处理时间，不能与录音延迟直接比较。' : '原生模式用麦克风说一句英语；本地模型可用同一段示例自检。不同录音的数字不宜直接比较。';
 }
 document.querySelectorAll('[data-engine]').forEach(button => button.addEventListener('click', () => {
   const target = button.dataset.engine;
   if (target === selectedEngine || !['idle','ready','error'].includes(state)) return;
   engineHistory[selectedEngine].text = savedText;
+  nativeSession?.cancel(false); nativeSession = null;
   destroyWorker(); selectedEngine = target; metrics = {}; firstWordMs = null; captureMethod = '尚未录音'; cacheStatus = '正在检查';
   savedText = engineHistory[target].text; prefix = ''; latestPartial = '';
-  hideError(); setState('idle'); updateEngineUI(); renderText(savedText);
+  hideError(); setState('idle'); renderText(savedText);
   for (const id of ['loadMetric','firstWordMetric','rtfMetric','queueMetric']) ui[id].textContent = '—';
-  ui.sampleReference.hidden = true; ui.resultHint.textContent = '所选引擎尚未加载，上一项结果保留在对照卡中';
-  ui.inputLabel.textContent = target === 'sherpa' ? 'ZIPFORMER' : target === 'whisper' ? 'WHISPER TINY.EN Q8' : target === 'whisperBase' ? 'WHISPER BASE.EN Q8' : 'WHISPER BASE.EN Q5_1'; ui.durationLabel.textContent = '00:00';
+  ui.sampleReference.hidden = true; ui.resultHint.textContent = target === 'native' ? '点击开始，说一句英语；上一项结果保留在对照卡中' : '所选引擎尚未加载，上一项结果保留在对照卡中';
+  updateEngineUI();
+  ui.inputLabel.textContent = target === 'native' ? 'ENGLISH · BROWSER SERVICE' : target === 'sherpa' ? 'ZIPFORMER' : target === 'whisper' ? 'WHISPER TINY.EN Q8' : target === 'whisperBase' ? 'WHISPER BASE.EN Q8' : 'WHISPER BASE.EN Q5_1'; ui.durationLabel.textContent = '00:00';
   log(`切换到 ${ENGINES[target].label}，已关闭上一个 Worker`); void checkOfflineCache();
 }));
 setState('idle'); updateEngineUI(); renderComparison(); log(`Say it ${VERSION} · 准备就绪，尚未申请麦克风权限`);
 for (const [id, profile] of Object.entries(ENGINES)) {
+  if (profile.native) continue;
   fetch(new URL('./' + profile.manifest, import.meta.url)).then(response => { if (!response.ok) throw new Error(`${profile.label} 资源清单缺失`); return response.json(); }).then(data => {
     manifests.set(id, data); if (id === selectedEngine) { updateEngineUI(); void checkOfflineCache(); }
   }).catch(error => { log(error.message); });

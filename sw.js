@@ -1,6 +1,6 @@
-const CACHE = 'say-it-1.2.0';
+const CACHE = 'say-it-1.3.0';
 const BASE = new URL('./', self.location.href);
-const SHELL = ['./index.html','./styles.css','./app.js','./audio-utils.js','./capture-worklet.js','./recognizer-worker.js','./whisper-worker.js','./whisper-cpp-worker.js','./whisper-session.js','./icon.svg','./sample.wav','./asset-manifest.json','./whisper-manifest.json','./whisper-base-manifest.json','./whisper-cpp-manifest.json'];
+const SHELL = ['./index.html','./styles.css','./app.js','./native-recognizer.js','./audio-utils.js','./capture-worklet.js','./recognizer-worker.js','./whisper-worker.js','./whisper-cpp-worker.js','./whisper-session.js','./icon.svg','./sample.wav','./asset-manifest.json','./whisper-manifest.json','./whisper-base-manifest.json','./whisper-cpp-manifest.json'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL.map(path => new URL(path, BASE).href))).then(() => self.skipWaiting()));
 });

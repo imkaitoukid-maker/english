@@ -1,5 +1,25 @@
 # Verification record
 
+## Browser speech option, v1.3.0 (2026-11-09)
+
+Verified in desktop Chrome on Windows. **No iPhone/iPad Safari, Android Chrome, or Android Edge device was available.** User-Agent changes below are branch/layout checks, not real mobile-browser execution or speech-service availability proof.
+
+Passed with controlled Web Speech API events:
+
+- Both standard `SpeechRecognition` and prefixed `webkitSpeechRecognition` constructor paths; no user-agent block for Android Edge.
+- Synchronous start inside a real click with user activation; en-US, continuous=false, interimResults=true. Native mode creates no extra getUserMedia stream, AudioContext, or inference Worker and downloads no vendor/model assets.
+- Interim revisions, multiple final results and repeated final events without duplicated text; automatic end returns to a usable state without a restart loop.
+- Repeated rounds preserve text; manual stop accepts a delayed final result; pending permission can be cancelled and a late start is aborted.
+- Network, permission, unavailable-service and no-speech handling. A missing end event after an error releases the UI. Provisional text retained at termination is labelled rather than presented as confirmed output.
+- Background and pagehide termination, usable state for back-forward cache restoration, native/model switching, per-engine text preservation, conditional privacy text, non-fabricated compute metrics, and exported API/error/end metadata.
+- Startup and stop timeouts release sessions and abort a non-responsive service; the timeout paths were checked using short controlled timers.
+- Five-option layout at 834×1112, 1112×834, 820×1180, 390×844 and 360×800 CSS pixels.
+- Real Zipformer and Transformers.js tiny.en sample regressions after adding native mode; all existing model bytes/hashes remain unchanged.
+
+Actual desktop Chrome API probe with synthetic fake microphone: the real SpeechRecognition service reached onstart and returned no-speech after about 8 seconds; the page recovered normally. It produced no transcript, so this is a service-start/error-path probe, not an end-to-end native recognition or accuracy pass.
+
+Still requires target-device testing: actual spoken English transcription, Siri/system permission configuration, connectivity, browser-specific service access and interruptions in iPhone/iPad Safari and Android Chrome. Android Edge is explicitly a compatibility attempt pending the same service test. Native processing is browser-managed and may send audio to an online service; offline recognition is not asserted.
+
 ## Four configurations, v1.2.0 (2026-11-09)
 
 The following checks passed with actual model inference in Windows desktop Chrome. No iPad Air 3 or Safari performance measurement was performed.

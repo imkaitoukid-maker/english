@@ -25,4 +25,8 @@ The comparison engine does not use a remote inference provider. The included tok
 - **whisper.cpp v1.8.2 and bundled GGML** — The ggml authors, MIT License. Source: https://github.com/ggml-org/whisper.cpp/tree/v1.8.2 ; license: `vendor/whisper-cpp/LICENSE-whisper.cpp`. Built with Emscripten 3.1.74, WASM SIMD, CPU single-thread, no pthreads. The included `tools/whisper-cpp-bridge.cpp` passes the optional user prompt into `whisper_full_params.initial_prompt`; `tools/configure-whisper-cpp.cjs` documents the build changes. Generated runtime glue retains the Emscripten licensing described above.
 - **Whisper base.en GGML Q5_1** — OpenAI Whisper, MIT License, quantized distribution by ggerganov/whisper.cpp. Source: https://huggingface.co/ggerganov/whisper.cpp/tree/5359861c739e955e79d9a303bcbc70fb988958b1 ; license: `vendor/whisper-cpp/LICENSE-whisper`. Original `ggml-base.en-q5_1.bin` is split without editing its weights. Original SHA-256 and shard hashes: `whisper-cpp-manifest.json`.
 
-All four configurations run on-device. Audio and prompts are not sent to an inference service. This package uses CPU WASM; it does not incorporate native Apple Metal/Core ML acceleration.
+The four WASM configurations run on-device; their audio and prompts are not sent to an inference service. The WASM package uses CPU execution; it does not incorporate native Apple Metal/Core ML acceleration.
+
+## Browser speech service option (v1.3.0)
+
+The default browser-native option calls the user's browser/system Web Speech API. It does not bundle or license a speech model from Microsoft, Apple or Google, and it is not the local WASM path described above. The browser may use an online speech service and transmit audio under its own permissions and terms. No third-party SDK, API key or developer-managed inference backend is added for this option.
