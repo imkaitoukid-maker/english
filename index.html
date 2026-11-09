@@ -32,6 +32,15 @@
         </aside>
       </section>
 
+      <section class="engine-panel" aria-label="切换识别引擎">
+        <div class="engine-heading"><span class="eyebrow">CHOOSE YOUR ENGINE</span><span>同一段示例，两种本地方案</span></div>
+        <div class="engine-tabs" role="group" aria-label="识别引擎">
+          <button id="sherpaEngine" type="button" data-engine="sherpa" aria-pressed="true"><strong>sherpa-onnx · Zipformer</strong><span>流式识别 · 边说边出字</span></button>
+          <button id="whisperEngine" type="button" data-engine="whisper" aria-pressed="false"><strong>Transformers.js · Whisper tiny.en</strong><span>短句分段 · 定期更新文字</span></button>
+        </div>
+        <p id="engineDescription">选择一个引擎后加载模型。切换会关闭上一个引擎，保留最近的对照结果。</p>
+      </section>
+
       <section class="workspace" aria-label="英文语音转文字">
         <div class="recorder-panel">
           <div class="panel-top"><span class="eyebrow">YOUR MICROPHONE</span><span id="stateBadge" class="state-badge" role="status">等待准备</span></div>
@@ -59,6 +68,12 @@
         </div>
       </section>
 
+      <section class="comparison-section" aria-label="两种引擎最近一次结果">
+        <div class="summary-caption"><span class="eyebrow">SIDE BY SIDE</span><span>本次打开页面期间保留</span></div>
+        <div id="comparisonResults" class="comparison-grid"></div>
+        <p id="comparisonHint" class="comparison-hint">依次切换引擎并点击“示例音频自检”，即可用同一段英语对照。</p>
+      </section>
+
       <section class="test-summary" aria-label="设备性能信息">
         <div class="summary-caption"><span class="eyebrow">DEVICE CHECK</span><span>为 Air 3 真机测试保留的数据</span></div>
         <div class="metrics-grid">
@@ -73,7 +88,7 @@
         </details>
       </section>
 
-      <footer class="site-footer"><p><span class="small-dot"></span> 模型在你的设备上运行。录音不会发送到服务器。</p><span>Say it. / English speech demo <span id="versionLabel">v1.0.1</span></span></footer>
+      <footer class="site-footer"><p><span class="small-dot"></span> 模型在你的设备上运行。录音不会发送到服务器。</p><span>Say it. / English speech demo <span id="versionLabel">v1.1.0</span></span></footer>
     </main>
   </div>
   <noscript>此演示需要启用 JavaScript 才能在浏览器中运行语音识别模型。</noscript>

@@ -1,5 +1,12 @@
 const $ = id => document.getElementById(id);
-const VERSION = '1.0.1';
+const VERSION = '1.1.0';
+const ENGINES = {
+  sherpa: { label:'sherpa-onnx · Zipformer', worker:'recognizer-worker.js', manifest:'asset-manifest.json', type:'classic', limit:60, queueLimit:5, description:'流式识别，连续接收音频并更新文字。只加载当前引擎；切换后需重新初始化。' },
+  whisper: { label:'Transformers.js · Whisper tiny.en', worker:'whisper-worker.js', manifest:'whisper-manifest.json', type:'module', limit:20, queueLimit:12, description:'WASM 单线程；约每 3 秒重算当前短句，停顿或点击完成后定稿。适合短句对照，单次最多 20 秒。' },
+};
+let selectedEngine = 'sherpa';
+const manifests = new Map();
+const engineHistory = { sherpa:{ text:'',latest:null }, whisper:{ text:'',latest:null } };
 const prompts = ["I'd like to practice my English today.", 'Could you help me find the library?', 'What do you like to do after school?', 'I think learning something new is exciting.'];
 const ui = Object.fromEntries(['primaryButton','primaryLabel','primaryIcon','sampleButton','stateBadge','recorderTitle','recorderHint','downloadPanel','downloadProgress','downloadLabel','downloadPercent','downloadNote','errorMessage','durationLabel','inputLabel','visualizer','emptyTranscript','finalText','partialText','wordCount','clearButton','copyButton','resultHint','sampleReference','referenceText','loadMetric','firstWordMetric','rtfMetric','queueMetric','deviceInfo','eventLog','exportButton'].map(id => [id, $(id)]));
 let state = 'idle', worker = null, modelReady = false, manifest = null;
@@ -28,6 +35,8 @@ function setState(next) {
   ui.clearButton.disabled = !savedText || !['idle','ready','error'].includes(next);
   ui.visualizer.dataset.active = String(next === 'recording');
   ui.downloadPanel.hidden = next !== 'loading';
+  document.querySelectorAll('[data-engine]').forEach(button => { button.disabled = !['idle','ready','error'].includes(next); });
+  if (next === 'recording') ui.recorderHint.textContent = selectedEngine === 'whisper' ? '约每 3 秒更新当前短句；点击完成后定稿，单次最多 20 秒。' : hint;
   if (next !== 'recording') paintMeter(0);
 }
 function showError(error) {
@@ -54,13 +63,14 @@ function renderText(committed = savedText, partial = '') {
 }
 function updateDeviceInfo() {
   const rows = [
-    ['识别模型', manifest?.model || '英文流式 Zipformer INT8'],
-    ['推理方式', 'WebAssembly SIMD · CPU 单线程 · 独立 Worker'],
+    ['识别引擎', ENGINES[selectedEngine].label],
+    ['识别模型', manifest?.model || '加载模型后显示'],
+    ['推理方式', selectedEngine === 'whisper' ? 'Transformers.js · WASM CPU 单线程 · 短句分段' : 'WebAssembly SIMD · CPU 单线程 · 独立 Worker'],
     ['采集方式', captureMethod],
     ['音频采样', capture ? `${capture.context.sampleRate} Hz → 16000 Hz` : '录音开始后显示实际采样率'],
     ['安全页面', window.isSecureContext ? 'HTTPS / localhost' : '否（麦克风不可用）'],
     ['离线缓存', cacheStatus],
-    ['WASM 内存', metrics.heapBytes ? `${(metrics.heapBytes / 1024 / 1024).toFixed(1)} MiB（不含页面其他内存）` : '模型加载后显示'],
+    ['WASM 内存', metrics.heapUnavailable ? '此运行时未公开；不能据此比较整页内存' : metrics.heapBytes ? `${(metrics.heapBytes / 1024 / 1024).toFixed(1)} MiB（不含页面其他内存）` : '模型加载后显示'],
     ['浏览器', navigator.userAgent],
   ];
   ui.deviceInfo.replaceChildren();
@@ -79,7 +89,7 @@ function updateMetrics(data) {
   const backlog = currentMode === 'microphone' ? Math.max(0, sentSeconds - processedSeconds) : 0;
   ui.queueMetric.textContent = `${backlog.toFixed(1)} s`; ui.queueMetric.dataset.warning = String(backlog > 1);
   if (currentMode === 'sample' && data.inputSeconds != null) ui.durationLabel.textContent = `${data.inputSeconds.toFixed(1)} s`;
-  if (data.heapBytes != null) updateDeviceInfo();
+  if ('heapBytes' in data || 'heapUnavailable' in data) updateDeviceInfo();
 }
 function rpc(type, data = {}, timeoutMs = 120000) {
   const requestId = ++rpcCounter;
@@ -96,7 +106,8 @@ function destroyWorker(reason = new Error('识别引擎已关闭')) {
   pending.clear();
 }
 function createWorker() {
-  worker = new Worker(new URL('./recognizer-worker.js', import.meta.url));
+  const profile = ENGINES[selectedEngine];
+  worker = new Worker(new URL('./' + profile.worker, import.meta.url), {type:profile.type});
   worker.onerror = event => {
     const error = new Error(event.message || '识别 Worker 无法启动。请确认所有资源上传完整。');
     destroyWorker(error); void failSession(error);
@@ -127,12 +138,12 @@ function createWorker() {
 }
 async function loadModel() {
   hideError(); setState('loading'); ui.downloadProgress.value = 0; ui.downloadPercent.textContent = '0%';
-  ui.downloadLabel.textContent = '检查本地资源…'; log('开始加载英文识别模型');
+  ui.downloadLabel.textContent = '检查本地资源…'; log(`开始加载 ${ENGINES[selectedEngine].label}`);
   try {
     destroyWorker(); createWorker();
     const result = await rpc('init', {}, 600000);
     modelReady = true; updateMetrics(result); setState('ready');
-    log(`模型准备完成：${formatMs(result.loadMs)}，WASM 内存 ${(result.heapBytes / 1048576).toFixed(1)} MiB`);
+    log(`模型准备完成：${formatMs(result.loadMs)}${result.heapBytes ? `，WASM 内存 ${(result.heapBytes / 1048576).toFixed(1)} MiB` : '，运行时未公开 WASM 内存'}`);
     void checkOfflineCache(); return true;
   } catch (error) { destroyWorker(); setState('error'); showError(error); return false; }
 }
@@ -149,8 +160,8 @@ function sendAudio(samples, rms, id, sampleRate) {
   sentSeconds += samples.length / sampleRate;
   worker.postMessage({ type: 'audio', sessionId: id, sampleRate, buffer: samples.buffer }, [samples.buffer]);
   paintMeter(rms);
-  if (state === 'recording' && sentSeconds - processedSeconds > 5) {
-    log('待处理音频超过 5 秒，自动结束本轮以防积压'); void stopRecording('设备处理跟不上，已结束采集，正在处理剩余音频。');
+  if (state === 'recording' && sentSeconds - processedSeconds > ENGINES[selectedEngine].queueLimit) {
+    log(`待处理音频超过 ${ENGINES[selectedEngine].queueLimit} 秒，自动结束本轮以防积压`); void stopRecording('设备处理跟不上，已结束采集，正在处理剩余音频。');
   }
 }
 async function setupCapture() {
@@ -234,11 +245,11 @@ async function startRecording() {
     await rpc('begin', { sessionId: id, sampleRate: source.sampleRate }, 15000);
     if (activeSession !== id || state !== 'requesting' || !capture || document.hidden) throw new Error('录音已取消。');
     sessionStarted = performance.now(); setState('recording'); source.connect(); updateDeviceInfo();
-    log(`开始录音：${captureMethod}，${source.sampleRate} Hz，单次最多 60 秒`);
+    log(`开始录音：${ENGINES[selectedEngine].label}，${captureMethod}，${source.sampleRate} Hz，单次最多 ${ENGINES[selectedEngine].limit} 秒`);
     timer = setInterval(() => {
       const seconds = Math.floor((performance.now() - sessionStarted) / 1000);
       ui.durationLabel.textContent = `${String(Math.floor(seconds / 60)).padStart(2,'0')}:${String(seconds % 60).padStart(2,'0')}`;
-      if (seconds >= 60 && state === 'recording') void stopRecording('已达到本轮 60 秒上限，可再次开始练习。');
+      if (seconds >= ENGINES[selectedEngine].limit && state === 'recording') void stopRecording(`已达到本轮 ${ENGINES[selectedEngine].limit} 秒上限，可再次开始练习。`);
     }, 200);
   } catch (error) {
     if (activeSession !== id) return;
@@ -248,7 +259,10 @@ async function startRecording() {
 }
 function saveSession(result, mode) {
   updateMetrics(result);
-  sessions.push({ at: new Date().toISOString(), mode, firstWordMs, ...result }); sessions = sessions.slice(-30);
+  const entry = { at: new Date().toISOString(), engine:selectedEngine, model:manifest?.model, mode, firstWordMs, ...result };
+  sessions.push(entry); sessions = sessions.slice(-30);
+  engineHistory[selectedEngine].latest = entry; engineHistory[selectedEngine].text = savedText;
+  renderComparison();
   log(`${mode === 'sample' ? '示例自检' : '录音'}完成：音频 ${result.inputSeconds.toFixed(2)} s，识别计算 ${formatMs(result.computeMs)}，比值 ${result.rtf.toFixed(3)}`);
 }
 async function stopRecording(reason) {
@@ -287,11 +301,14 @@ async function runSample() {
   } catch (error) { await failSession(error); }
 }
 async function checkOfflineCache() {
+  const checkingEngine = selectedEngine, checkingManifest = manifest;
+  if (!checkingManifest) { cacheStatus = '正在读取资源清单，模型缓存尚未检查'; updateDeviceInfo(); return; }
   try {
     if (!('caches' in window) || !navigator.serviceWorker?.controller) { cacheStatus = '未启用，当前仍可在线加载并本地识别'; updateDeviceInfo(); return; }
     const cache = await caches.open(`say-it-${VERSION}`);
-    const names = ['./index.html','./app.js','./styles.css','./recognizer-worker.js','./audio-utils.js','./capture-worklet.js','./sample.wav','./asset-manifest.json', ...(manifest?.assets || []).map(asset => './' + asset.path)];
+    const names = ['./index.html','./app.js','./styles.css','./recognizer-worker.js','./whisper-worker.js','./audio-utils.js','./capture-worklet.js','./sample.wav','./asset-manifest.json','./whisper-manifest.json', ...(checkingManifest?.assets || []).map(asset => './' + asset.path)];
     const cached = await Promise.all(names.map(name => cache.match(new URL(name, import.meta.url).href)));
+    if (checkingEngine !== selectedEngine) return;
     cacheStatus = cached.every(Boolean) ? '页面、引擎与模型已缓存；系统仍可能清理缓存' : `正在缓存（${cached.filter(Boolean).length}/${names.length}）`;
   } catch { cacheStatus = '缓存不可用，本地识别仍可使用'; }
   updateDeviceInfo();
@@ -325,7 +342,7 @@ ui.copyButton.addEventListener('click', async () => {
   }
 });
 ui.exportButton.addEventListener('click', () => {
-  const data = { version: VERSION, exportedAt: new Date().toISOString(), userAgent: navigator.userAgent, secureContext: isSecureContext, captureMethod, cacheStatus, metrics, transcript: join(savedText, latestPartial), sessions, logs, model: manifest?.model, runtimeVersion: manifest?.runtimeVersion };
+  const data = { version: VERSION, selectedEngine, comparison:engineHistory, exportedAt: new Date().toISOString(), userAgent: navigator.userAgent, secureContext: isSecureContext, captureMethod, cacheStatus, metrics, transcript: join(savedText, latestPartial), sessions, logs, model: manifest?.model, runtimeVersion: manifest?.runtimeVersion };
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   const link = document.createElement('a'); link.href = url; link.download = 'say-it-device-check.json'; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
@@ -336,10 +353,44 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('pagehide', () => { capture?.media?.getTracks().forEach(track => track.stop()); void cleanupCapture(); });
 
-setState('idle'); updateDeviceInfo(); log(`Say it ${VERSION} · 准备就绪，尚未申请麦克风权限`);
-fetch(new URL('./asset-manifest.json', import.meta.url)).then(response => { if (!response.ok) throw new Error('资源清单缺失'); return response.json(); }).then(data => {
-  manifest = data; ui.downloadNote.textContent = `首次下载约 ${(data.totalBytes / 1000000).toFixed(1)} MB；资源可缓存。录音始终在本机处理。`;
+function updateEngineUI() {
+  document.querySelectorAll('[data-engine]').forEach(button => { button.setAttribute('aria-pressed', String(button.dataset.engine === selectedEngine)); });
+  $('engineDescription').textContent = ENGINES[selectedEngine].description;
+  manifest = manifests.get(selectedEngine) || null;
+  ui.downloadNote.textContent = manifest ? `此引擎首次下载约 ${(manifest.totalBytes / 1000000).toFixed(1)} MB；只加载所选模型，录音不上传。` : '仅加载所选引擎，模型资源可缓存在本机。';
   updateDeviceInfo();
-}).catch(error => { log(error.message); });
+}
+function renderComparison() {
+  const container = $('comparisonResults'); container.replaceChildren();
+  for (const [id, profile] of Object.entries(ENGINES)) {
+    const result = engineHistory[id].latest;
+    const card = document.createElement('article'); card.className = 'comparison-card'; card.dataset.engineResult = id;
+    const heading = document.createElement('h3'); heading.textContent = profile.label;
+    const meta = document.createElement('p'); meta.className = 'comparison-meta';
+    meta.textContent = result ? `${result.mode === 'sample' ? '同一段合成语音自检' : '最近一次麦克风输入'} · 首字 ${result.firstWordMs == null ? '—' : formatMs(result.firstWordMs)}${result.mode === 'sample' ? ' *' : ''} · 计算比 ${result.rtf.toFixed(2)}` : '尚未测试';
+    const text = document.createElement('p'); text.className = 'comparison-text'; text.lang = 'en'; text.textContent = result?.text || 'Run a self-check to compare.';
+    card.append(heading, meta, text); container.append(card);
+  }
+  const bothSamples = Object.values(engineHistory).every(history => history.latest?.mode === 'sample');
+  $('comparisonHint').textContent = bothSamples ? '两项均为同一段示例。* 首字是自检处理时间；录音模式更适合比较交互延迟。' : '依次切换引擎并点击“示例音频自检”，即可用同一段英语对照。不同录音的数字不宜直接比较。';
+}
+document.querySelectorAll('[data-engine]').forEach(button => button.addEventListener('click', () => {
+  const target = button.dataset.engine;
+  if (target === selectedEngine || !['idle','ready','error'].includes(state)) return;
+  engineHistory[selectedEngine].text = savedText;
+  destroyWorker(); selectedEngine = target; metrics = {}; firstWordMs = null; captureMethod = '尚未录音'; cacheStatus = '正在检查';
+  savedText = engineHistory[target].text; prefix = ''; latestPartial = '';
+  hideError(); setState('idle'); updateEngineUI(); renderText(savedText);
+  for (const id of ['loadMetric','firstWordMetric','rtfMetric','queueMetric']) ui[id].textContent = '—';
+  ui.sampleReference.hidden = true; ui.resultHint.textContent = '所选引擎尚未加载，上一项结果保留在对照卡中';
+  ui.inputLabel.textContent = target === 'whisper' ? 'WHISPER TINY.EN' : 'ZIPFORMER'; ui.durationLabel.textContent = '00:00';
+  log(`切换到 ${ENGINES[target].label}，已关闭上一个 Worker`); void checkOfflineCache();
+}));
+setState('idle'); updateEngineUI(); renderComparison(); log(`Say it ${VERSION} · 准备就绪，尚未申请麦克风权限`);
+for (const [id, profile] of Object.entries(ENGINES)) {
+  fetch(new URL('./' + profile.manifest, import.meta.url)).then(response => { if (!response.ok) throw new Error(`${profile.label} 资源清单缺失`); return response.json(); }).then(data => {
+    manifests.set(id, data); if (id === selectedEngine) { updateEngineUI(); void checkOfflineCache(); }
+  }).catch(error => { log(error.message); });
+}
 if (!isSecureContext) showError(new DOMException('HTTPS required', 'SecurityError'));
 void registerOffline();

@@ -1,8 +1,21 @@
 # Say it. 英文语音转文字 Demo
 
-纯静态网页：英语语音 → 英语文字。使用 sherpa-onnx、流式英文 Zipformer 和单线程 WASM SIMD，在浏览器独立 Worker 中推理。模型和引擎已包含在本目录，不需要 API Key、后端、npm 安装或运行时访问 Hugging Face。
+纯静态网页：英语语音 → 英语文字。可在同一页面切换 **sherpa-onnx + 流式 Zipformer** 与 **Transformers.js + Whisper tiny.en**，两者均在独立 Worker 中使用单线程 CPU WASM 本地推理。两套模型和运行时都已包含，不需要 API Key、后端、npm 安装或运行时访问 Hugging Face / CDN。
 
-页面有麦克风输入、实时临时文字、结束定稿、复制、合成语音自检、离线缓存和设备测试信息导出。单次录音最长 60 秒；停顿会分段定稿，麦克风仍继续录音，直到点击完成。
+页面有引擎切换、麦克风输入、临时文字、结束定稿、复制、同一段合成语音自检、结果对照卡、离线缓存和测试信息导出。切换会终止上一个引擎的 Worker，不会同时把两套模型放在运行内存中。各自的文字和最近一次结果在当前页面内保留。
+
+## 切换对比
+
+1. 选择 **sherpa-onnx · Zipformer**，点击“用示例音频自检”。第一次会加载约 **87.5 MB**。
+2. 选择 **Transformers.js · Whisper tiny.en**，再次点击“用示例音频自检”。第一次会加载约 **67.6 MB**。
+3. “SIDE BY SIDE”会同时保留两种引擎对同一段示例的原始文字、首个结果时间和计算比。
+4. 再分别测试麦克风。切换前需要完成当前录音；录音、模型加载和自检期间，切换按钮会禁用。
+
+Whisper tiny.en 使用 q8 量化，运行于 Transformers.js **3.8.1**。这是短句分段方案：约每收到 3 秒新音频重算当前短句，停顿约 1.6 秒后尝试定稿，点击完成会重新处理剩余短句。单次最多 **20 秒**。识别本身较慢时，更新间隔会变长；当前短句可能被修订。
+
+Zipformer 保持原来的流式方案，单次最多 **60 秒**。两者都使用相同的麦克风采集设置及示例文件，不把练习提示句喂给模型。
+
+示例自检是批量处理：Whisper 对整段示例做一次识别，Zipformer 按流式帧解码；带 `*` 的首字时间不是实际说话时的交互延迟。Whisper 录音模式会重算临时结果，其计算比包含重复处理成本。请主要用各自的麦克风模式比较使用体验，不要把数字当成统一硬件基准。
 
 ## 部署到 GitHub Pages
 
@@ -13,7 +26,7 @@
 
 如果不想使用工作流，也可以选择 **Deploy from a branch → main → /(root)**；本项目不需要构建，根目录的 `.nojekyll` 已包含。两种发布方式选一种即可。
 
-所有模型文件已经拆到 20 MB 以内，可通过 GitHub 网页逐批上传，也可以使用 GitHub Desktop 或 Git。不要把模型改成 Git LFS 指针文件。不要只上传 HTML/JS 而遗漏 `vendor/`。仓库名称和子路径不需要写进代码，路径均相对于当前网页。
+模型权重已拆成 20 MB 以内的分片，最大的引擎文件约 21.6 MB，所有文件均低于 GitHub 网页上传的 25 MiB 限制。可逐批上传，也可以使用 GitHub Desktop 或 Git。不要把模型改成 Git LFS 指针文件。更新已有仓库时，要连同 **`vendor/whisper/`、`whisper-worker.js` 和 `whisper-manifest.json`** 一起提交；不要只更新页面文件。仓库名称和子路径不需要写进代码。
 
 GitHub 官方说明：[Pages 工作流](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)、[网页上传 25 MiB / Git 单文件 100 MiB 限制](https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github)。
 
@@ -32,18 +45,20 @@ GitHub 官方说明：[Pages 工作流](https://docs.github.com/en/pages/getting
 - **模型准备**：包含下载、引擎初始化和预热；缓存后通常会缩短。
 - **首个文字**：麦克风模式下，从开始采集到收到首个非空识别结果的墙钟时间；包含用户开口前的等待。示例自检带 `*`，表示批量处理示例时的首个结果时间，两者不能直接比较。
 - **识别计算 / 音频时长**：Worker 内音频接收、原生重采样、解码及尾部收尾所耗计算时间除以实际输入时长；不包含模型加载及网络下载。持续输入应低于 1，仍需结合“待处理音频”观察实际体验。
-- **待处理音频**：主线程已送出的音频时长减去 Worker 已处理的音频时长；显示更新本身会带来很小的波动。超过 5 秒会自动停止本轮采集并尝试处理剩余音频。
-- **WASM 内存**：WASM 线性内存容量，不是整个 Safari 页面的内存。官方运行时初始容量为 512 MiB，页面、音频和模型下载缓存还会占用额外内存；因此旧设备必须真机验收。
+- **待处理音频**：主线程已送出的时长减去已经分析的时长。Zipformer 在持续解码后更新，Whisper 在短句识别完成后更新，因此 Whisper 在两次识别之间自然会积攒几秒。Zipformer 超过 5 秒、Whisper 超过 12 秒时，会自动停止采集并尝试处理剩余音频。
+- **WASM 内存**：Zipformer 显示其线性内存容量，初始为 512 MiB；这不是整个 Safari 页面的内存。Transformers.js 所用运行时不公开同等指标，页面明确显示“未公开”，不伪造可比较的内存数字。页面、音频和下载缓存还会占用额外内存，因此旧设备必须真机验收。
 
-此 Demo 用于验证转写，不提供发音评分。示例是 Microsoft Zira 合成英语，不代表学生口音、儿童声音或真实环境识别率。模型通常输出大写英文且不自动补全标点。
+此 Demo 用于验证转写，不提供发音评分。示例是 Microsoft Zira 合成英语，不代表学生口音、儿童声音或真实环境识别率。保留各模型原始输出：Zipformer 通常是大写且无标点，Whisper 通常会补充大小写及标点。
 
 ## 资源与版本
 
 - sherpa-onnx WASM 运行时：`v1.13.7`，CPU 单线程，不要求 WebGPU、SharedArrayBuffer 或 COOP/COEP 响应头，适合 GitHub Pages 的静态托管方式。
+- Transformers.js：`3.8.1`，ONNX Runtime Web `1.22.0-dev.20250409-89f8206ba4`，强制 `device: 'wasm'`、`numThreads: 1`、`proxy: false`。此版本用于 CPU 对照，不启用 WebGPU。其 WASM 文件名带 `threaded`，本 Demo 仍只启用单线程，不启动额外推理线程。
+- Whisper 模型：`onnx-community/whisper-tiny.en`，固定修订 `2575352d61be1bf7225cf8f8b268a4678025fc58`；q8 编码器与合并解码器。解码器分片在 Worker 内重组，使用 Transformers.js 的 `customCache` 接口提供给模型加载器。
 - 英文模型：`sherpa-onnx-streaming-zipformer-en-2023-06-26`，chunk 16 / left 128；编码器 INT8，解码器和 joiner FP32。
-- 模型权重约 74.2 MB，引擎和封装约 13.3 MB，首次加载资源合计约 87.5 MB。
+- Zipformer 模型权重约 74.2 MB，引擎和封装约 13.3 MB，首次加载资源合计约 87.5 MB；Whisper 方案首次约 67.6 MB。
 - 最初对照过 20M 模型，它在这段短句上出现明显漏词，因此最终包使用上面的模型。资源下载与实际推理仍全部采用本地方案。
-- 完整来源、固定模型修订版、各文件大小和 SHA-256 均在 `asset-manifest.json`。模型只重新打包，未修改权重；运行时 JS 只替换了预加载文件偏移和数据长度，WASM 二进制及配套封装保持上游原样。
+- 两套引擎合计部署资源约 **155.1 MB**，但首次加载只下载所选引擎。完整来源、固定模型修订、大小和 SHA-256 分别在 `asset-manifest.json` 与 `whisper-manifest.json`。模型权重未修改；sherpa 的加载器仅调整预加载包信息，Whisper 的运行时保持上游原样。
 - 开源许可证与第三方说明见 `vendor/` 和 `NOTICE.md`。
 
 ## 本机预览与校验
@@ -64,11 +79,14 @@ index.html / styles.css       页面和移动端布局
 app.js                       页面状态、麦克风与测试信息
 capture-worklet.js           麦克风 PCM 采集
 recognizer-worker.js          模型加载、单线程推理、流式结果及收尾
+whisper-worker.js             Transformers.js 模型加载、短句重算及停顿定稿
 audio-utils.js               示例 PCM WAV 解析
 sw.js                        同源静态资源缓存
 sample.wav                   本地合成英语自检样本
 asset-manifest.json          资源大小、SHA-256 和来源
+whisper-manifest.json        Whisper 资源与虚拟模型文件映射
 vendor/                      运行时、模型分片及许可证
+vendor/whisper/              Transformers.js、WASM、Whisper 权重与分词器
 tools/                       本机预览和完整性校验
 .github/workflows/pages.yml  可选的 Pages 部署工作流
 ```

@@ -1,3 +1,4 @@
 *.wasm binary
 *.data binary
 *.wav binary
+*.onnx binary

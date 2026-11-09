@@ -4,8 +4,9 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '..');
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'asset-manifest.json'), 'utf8'));
+const whisper = JSON.parse(fs.readFileSync(path.join(root, 'whisper-manifest.json'), 'utf8'));
 let bytes = 0;
-for (const asset of manifest.assets) {
+for (const asset of [...manifest.assets, ...whisper.assets]) {
   const file = path.resolve(root, asset.path);
   assert(file.startsWith(root + path.sep), 'Asset path must remain inside the project');
   const data = fs.readFileSync(file);
@@ -15,14 +16,19 @@ for (const asset of manifest.assets) {
   bytes += data.length;
   console.log(`OK ${asset.path} (${data.length} bytes)`);
 }
-assert.equal(bytes, manifest.totalBytes, 'Total byte count mismatch');
+assert.equal(bytes, manifest.totalBytes + whisper.totalBytes, 'Total byte count mismatch');
 assert.equal(manifest.modelParts.reduce((sum, part) => sum + manifest.assets.find(asset => asset.path === part).bytes, 0), manifest.modelBytes);
 const runtime = fs.readFileSync(path.join(root, 'vendor/sherpa-onnx-wasm-main-asr.js'), 'utf8');
 assert(runtime.includes(`"remote_package_size":${manifest.modelBytes}`), 'Preload metadata must match the model shards');
-for (const name of ['index.html','app.js','styles.css','audio-utils.js','capture-worklet.js','recognizer-worker.js','sw.js','sample.wav','.nojekyll']) assert(fs.existsSync(path.join(root, name)), `Missing ${name}`);
+for (const file of whisper.modelFiles.filter(file => file.sha256)) {
+  const data = Buffer.concat(file.parts.map(part => fs.readFileSync(path.join(root, part))));
+  assert.equal(data.length, file.bytes);
+  assert.equal(crypto.createHash('sha256').update(data).digest('hex'), file.sha256, 'Reconstructed model hash mismatch');
+}
+for (const name of ['index.html','app.js','styles.css','audio-utils.js','capture-worklet.js','recognizer-worker.js','whisper-worker.js','whisper-manifest.json','sw.js','sample.wav','.nojekyll']) assert(fs.existsSync(path.join(root, name)), `Missing ${name}`);
 require(path.join(root, 'audio-utils.js'));
 const sample = fs.readFileSync(path.join(root, 'sample.wav'));
 const wave = SayItAudio.parsePcmWave(sample.buffer.slice(sample.byteOffset, sample.byteOffset + sample.length));
 assert.equal(wave.sampleRate, 16000);
 assert(wave.duration > 5 && wave.duration < 10, 'Unexpected self-check sample');
-console.log(`Verified ${manifest.assets.length} runtime/model files; ${(bytes / 1000000).toFixed(1)} MB. Sample: ${wave.duration.toFixed(3)} s.`);
+console.log(`Verified ${manifest.assets.length + whisper.assets.length} runtime/model files; ${(bytes / 1000000).toFixed(1)} MB total. Sample: ${wave.duration.toFixed(3)} s.`);

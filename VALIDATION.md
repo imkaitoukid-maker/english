@@ -25,3 +25,21 @@ Still requires the user's device test:
 - Whether Safari retains the model cache across subsequent visits and storage pressure.
 
 Use the page's Device Check panel and diagnostic export for those measurements. Do not treat the synthetic sample or desktop compute ratio as an accuracy or latency guarantee.
+
+## Comparison engine, v1.1.0
+
+The following additional checks passed in desktop Chrome. They do not constitute iPad Safari compatibility or performance results.
+
+- Transformers.js 3.8.1 + q8 Whisper tiny.en initialization, warm-up, and real transcription of the complete included sample, including punctuation.
+- The default Zipformer selection does not download Whisper model/runtime assets.
+- Switching terminates the previous engine Worker; round-trip switching restores each engine's transcript. Switching is disabled during loading, inference self-checks, recording and finalization.
+- Both latest-result cards retain the original model output from the same sample and label sample timings separately from live microphone timings.
+- Actual getUserMedia + AudioWorklet input, periodic Whisper interim text, finalization and microphone-track cleanup. Automated tests use Chrome's looping fake audio device and the bundled WAV, so repeated phrases in live-test output correspond to repeated input audio.
+- Whisper's 48 kHz AudioContext + ScriptProcessor fallback path, including streaming resampling and final output.
+- Resampler duration and chunk consistency at 8 / 44.1 / 48 kHz, preservation of a 1 kHz test tone, and attenuation of a 12 kHz tone before 48-to-16 kHz downsampling.
+- Offline reload followed by a real Whisper self-check, including local ESM, WASM, tokenizer and split decoder resources.
+- Two-engine controls and result cards fit the tested iPad and 375 px phone viewports.
+- No page/console errors or external model/CDN requests during the additional integration test.
+- SHA-256 verification includes all 23 runtime/model resources across both engines and verifies the reassembled Whisper ONNX bytes. Every deployed file remains below 25 MiB.
+
+Whisper's WASM memory size is not publicly exposed by this runtime, so the UI reports it as unavailable instead of inventing a comparable memory metric.
