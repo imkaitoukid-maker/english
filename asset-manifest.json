@@ -1,0 +1,61 @@
+{
+  "version": "1.0.1",
+  "runtimeVersion": "1.13.7",
+  "model": "sherpa-onnx-streaming-zipformer-en-2023-06-26 (chunk 16 / left 128)",
+  "quantization": "INT8 encoder / FP32 decoder and joiner",
+  "sampleRate": 16000,
+  "numThreads": 1,
+  "modelBytes": 74207237,
+  "modelParts": [
+    "vendor/model-00.data",
+    "vendor/model-01.data",
+    "vendor/model-02.data",
+    "vendor/model-03.data"
+  ],
+  "totalBytes": 87493972,
+  "assets": [
+    {
+      "path": "vendor/model-00.data",
+      "bytes": 20000000,
+      "sha256": "3b1e2ddbe57ec4e29beaeed2fa65efe001467102cc1ef51bd7d62a6b3164671c"
+    },
+    {
+      "path": "vendor/model-01.data",
+      "bytes": 20000000,
+      "sha256": "572e00c438b8139e1b4a06608517ed50c0c7a2b93bda55646f628e80ea4543ab"
+    },
+    {
+      "path": "vendor/model-02.data",
+      "bytes": 20000000,
+      "sha256": "534577f2ebc6c1cc366066c7a14b7d12287a85fa1a007ce2b52a8053ae718f1f"
+    },
+    {
+      "path": "vendor/model-03.data",
+      "bytes": 14207237,
+      "sha256": "b8b119fae1afa7d2a0226d508142013fc729a566139d8adeedb223fa2b324ba8"
+    },
+    {
+      "path": "vendor/sherpa-onnx-asr.js",
+      "bytes": 53867,
+      "sha256": "d51ae8e8b756ee5e53423ffada0c9702973f154f561aca7984fe0b12f4060178"
+    },
+    {
+      "path": "vendor/sherpa-onnx-wasm-main-asr.js",
+      "bytes": 82629,
+      "sha256": "d126c82badba789340f1084552f617545685e77af7073b11c82c1dc11306cd07"
+    },
+    {
+      "path": "vendor/sherpa-onnx-wasm-main-asr.wasm",
+      "bytes": 13150239,
+      "sha256": "d0c15c3042fd61ca2a158a1eeb8b8c2099201f7580945efc8f729d2830cf746d"
+    }
+  ],
+  "sampleText": "I would like to practice my English today. Could you help me find the library?",
+  "sampleSource": "Synthetic speech generated with Microsoft Zira Desktop; not a learner-accent benchmark.",
+  "sources": {
+    "runtime": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.7/sherpa-onnx-wasm-simd-v1.13.7-en-asr-zipformer.tar.bz2",
+    "model": "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/tree/672fbf1b30579d6585301139bb363f42a0ad4a24",
+    "runtimeArchiveSha256": "21559527d65f7674a45834870e4f51b0af14be27d4de1043aa6f576d9b426acc"
+  },
+  "packaging": "WASM binary and version-matched wrapper unchanged. Replaced only preload metadata and packed data with the smaller English INT8 model."
+}

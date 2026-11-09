@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#174c43">
+  <meta name="description" content="在浏览器本地把英文语音转成文字。为 iPad 上的英语短句练习制作。">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'">
+  <title>Say it. — 英语语音输入</title>
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="Say it 首页"><span class="brand-mark" aria-hidden="true">s.</span> Say it<span class="brand-dot">.</span></a>
+      <span class="privacy-badge"><span class="status-dot"></span> 本地识别 · 音频不上传</span>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">A LITTLE PRACTICE, EVERY DAY</p>
+          <h1 id="page-title">Speak freely.<br><em>See your words.</em></h1>
+          <p class="intro-copy">把你说的英语，变成看得见的文字。<br>戴上耳机、放慢语速，从一句话开始。</p>
+        </div>
+        <aside class="practice-card" aria-label="练习句子">
+          <div class="practice-label"><span>TRY SAYING</span><button id="nextPrompt" class="text-button" type="button">换一句 <span aria-hidden="true">↗</span></button></div>
+          <p id="practicePrompt" lang="en">I'd like to practice my English today.</p>
+          <p class="practice-hint">也可以自由说任何英语，无需照读。</p>
+        </aside>
+      </section>
+
+      <section class="workspace" aria-label="英文语音转文字">
+        <div class="recorder-panel">
+          <div class="panel-top"><span class="eyebrow">YOUR MICROPHONE</span><span id="stateBadge" class="state-badge" role="status">等待准备</span></div>
+          <div id="visualizer" class="visualizer" aria-hidden="true">
+            <div class="mic-orbit"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M6 11v1a6 6 0 0 0 12 0v-1M12 18v3M9 21h6"/></svg></div>
+            <div class="level-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+          <div class="recorder-heading"><h2 id="recorderTitle">准备好你的声音</h2><p id="recorderHint">先加载模型，再允许浏览器使用麦克风。</p></div>
+          <div id="downloadPanel" class="download-panel" hidden>
+            <div class="progress-label"><span id="downloadLabel">正在准备…</span><span id="downloadPercent">0%</span></div>
+            <progress id="downloadProgress" max="100" value="0" aria-label="模型加载进度"></progress>
+          </div>
+          <button id="primaryButton" class="primary-button" type="button"><span id="primaryIcon" aria-hidden="true">↓</span><span id="primaryLabel">加载本地模型</span></button>
+          <button id="sampleButton" class="secondary-button" type="button">用示例音频自检 <span aria-hidden="true">↗</span></button>
+          <p id="downloadNote" class="download-note">首次加载需要下载模型，建议使用 Wi-Fi。</p>
+          <p id="errorMessage" class="error-message" role="alert" hidden></p>
+          <div class="recording-meta"><span id="inputLabel">ENGLISH ONLY</span><span id="durationLabel">00:00</span></div>
+        </div>
+
+        <div class="transcript-panel">
+          <div class="panel-top"><span class="eyebrow">YOUR WORDS</span><span id="wordCount" class="word-count">0 words</span></div>
+          <div id="transcript" class="transcript" lang="en" aria-label="英文识别结果" aria-live="polite" aria-atomic="true"><span id="emptyTranscript" class="transcript-placeholder">Your voice belongs here.<span>开始说英语，文字会出现在这里。</span></span><span id="finalText"></span><span id="partialText" class="partial-text"></span></div>
+          <div id="sampleReference" class="sample-reference" hidden><span>示例原文</span><p id="referenceText" lang="en"></p></div>
+          <div class="transcript-footer"><p id="resultHint"><span class="small-dot"></span> 说话时显示临时结果，完成后定稿</p><div class="transcript-actions"><button id="clearButton" class="text-button" type="button" disabled>清空</button><button id="copyButton" class="copy-button" type="button" disabled>复制文字 <span aria-hidden="true">⧉</span></button></div></div>
+        </div>
+      </section>
+
+      <section class="test-summary" aria-label="设备性能信息">
+        <div class="summary-caption"><span class="eyebrow">DEVICE CHECK</span><span>为 Air 3 真机测试保留的数据</span></div>
+        <div class="metrics-grid">
+          <div class="metric"><span>模型准备</span><strong id="loadMetric">—</strong><small>下载、初始化与预热</small></div>
+          <div class="metric"><span>首个文字</span><strong id="firstWordMetric">—</strong><small>从录音开始计算</small></div>
+          <div class="metric"><span>识别计算 / 音频时长</span><strong id="rtfMetric">—</strong><small>越小越好，持续输入应低于 1</small></div>
+          <div class="metric"><span>待处理音频</span><strong id="queueMetric">—</strong><small>持续增长表示设备跟不上</small></div>
+        </div>
+        <details id="diagnostics">
+          <summary>查看设备与运行日志 <span aria-hidden="true">＋</span></summary>
+          <div class="diagnostics-body"><dl id="deviceInfo"></dl><div class="log-heading"><span>运行日志（仅保存在当前页面）</span><button id="exportButton" class="text-button" type="button">导出测试信息 ↓</button></div><pre id="eventLog" aria-label="运行日志"></pre><p class="diagnostics-note">导出内容包含识别文字、浏览器信息与性能数据。只在点击导出时保存到你的设备。</p></div>
+        </details>
+      </section>
+
+      <footer class="site-footer"><p><span class="small-dot"></span> 模型在你的设备上运行。录音不会发送到服务器。</p><span>Say it. / English speech demo <span id="versionLabel">v1.0.1</span></span></footer>
+    </main>
+  </div>
+  <noscript>此演示需要启用 JavaScript 才能在浏览器中运行语音识别模型。</noscript>
+</body>
+</html>
