@@ -1,0 +1,210 @@
+{
+  "version": "1.2.0",
+  "sampleRate": 16000,
+  "numThreads": 1,
+  "sampleText": "I would like to practice my English today. Could you help me find the library?",
+  "runtimeVersion": "Transformers.js 3.8.1 / ONNX Runtime Web 1.22.0-dev.20250409-89f8206ba4",
+  "model": "Whisper base.en (q8)",
+  "modelId": "whisper-base.en",
+  "quantization": "q8",
+  "modelFiles": [
+    {
+      "path": "vendor/whisper/models/whisper-base.en/added_tokens.json",
+      "parts": [
+        "vendor/whisper/models/whisper-base.en/added_tokens.json"
+      ],
+      "bytes": 34604,
+      "sha256": "560be47bea388757f8d4cc185c5d82067426cbb6361e38016dd90ddc01ab203a"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/config.json",
+      "parts": [
+        "vendor/whisper/models/whisper-base.en/config.json"
+      ],
+      "bytes": 2197,
+      "sha256": "c8a0de5ed8a083565a4319db29d0c210fda35b4d6076c2d711cae53ae00f3cb1"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/generation_config.json",
+      "parts": [
+        "vendor/whisper/models/whisper-base.en/generation_config.json"
+      ],
+      "bytes": 1556,
+      "sha256": "3479b1f44a07e41db799e22599222fee5816738036def94a39841cb9cdbb4120"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/merges.txt",
+      "parts": [
+        "vendor/whisper/models/whisper-base.en/merges.txt"
+      ],
+      "bytes": 456318,
+      "sha256": "1ce1664773c50f3e0cc8842619a93edc4624525b728b188a9e0be33b7726adc5"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/normalizer.json",
+      "parts": [
+        "vendor/whisper/models/whisper-base.en/normalizer.json"
+      ],
+      "bytes": 52666,
+      "sha256": "bf1c507dc8724ca9cf9903640dacfb69dae2f00edee4f21ceba106a7392f26dd"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/preprocessor_config.json",
+      "parts": [
+        "vendor/whisper/models/whisper-base.en/preprocessor_config.json"
+      ],
+      "bytes": 339,
+      "sha256": "a6a76d28c93edb273669eb9e0b0636a2bddbb1272c3261e47b7ca6dfdbac1b8d"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/special_tokens_map.json",
+      "parts": [
+        "vendor/whisper/models/whisper-base.en/special_tokens_map.json"
+      ],
+      "bytes": 2173,
+      "sha256": "98bdf3ec5b32e31575b02f64b0a32bde7c0449075d34484a7df9bdd3cdeb9fb9"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/tokenizer.json",
+      "parts": [
+        "vendor/whisper/models/whisper-base.en/tokenizer.json"
+      ],
+      "bytes": 2405679,
+      "sha256": "5eb60cec1e77aeeb6869a2bb5a8e01a84c3fe5d072d75369343021fe6f5310d0"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/tokenizer_config.json",
+      "parts": [
+        "vendor/whisper/models/whisper-base.en/tokenizer_config.json"
+      ],
+      "bytes": 282662,
+      "sha256": "93879c3dccdd4b976f709acd85b44778873f30c275e67026f30ca1e4c975230c"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/vocab.json",
+      "parts": [
+        "vendor/whisper/models/whisper-base.en/vocab.json"
+      ],
+      "bytes": 999186,
+      "sha256": "f6bd25a65e4e63ca31360e9fb11c7e4f9a391a78385d640acd814092dd6eee4f"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/onnx/encoder_model_quantized.onnx",
+      "parts": [
+        "vendor/whisper/models/whisper-base.en/onnx/encoder-00.data",
+        "vendor/whisper/models/whisper-base.en/onnx/encoder-01.data"
+      ],
+      "bytes": 23201320,
+      "sha256": "6e8001198c490bbae018c0044f630c2915efb826bad957006ce36152d0ab2a10"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/onnx/decoder_model_merged_quantized.onnx",
+      "parts": [
+        "vendor/whisper/models/whisper-base.en/onnx/decoder-00.data",
+        "vendor/whisper/models/whisper-base.en/onnx/decoder-01.data",
+        "vendor/whisper/models/whisper-base.en/onnx/decoder-02.data"
+      ],
+      "bytes": 53692803,
+      "sha256": "dd4761a3f7add26afda3512abff4706920404c2517e85a9f2ff090b0c0987909"
+    }
+  ],
+  "assets": [
+    {
+      "path": "vendor/whisper/models/whisper-base.en/added_tokens.json",
+      "bytes": 34604,
+      "sha256": "560be47bea388757f8d4cc185c5d82067426cbb6361e38016dd90ddc01ab203a"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/config.json",
+      "bytes": 2197,
+      "sha256": "c8a0de5ed8a083565a4319db29d0c210fda35b4d6076c2d711cae53ae00f3cb1"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/generation_config.json",
+      "bytes": 1556,
+      "sha256": "3479b1f44a07e41db799e22599222fee5816738036def94a39841cb9cdbb4120"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/merges.txt",
+      "bytes": 456318,
+      "sha256": "1ce1664773c50f3e0cc8842619a93edc4624525b728b188a9e0be33b7726adc5"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/normalizer.json",
+      "bytes": 52666,
+      "sha256": "bf1c507dc8724ca9cf9903640dacfb69dae2f00edee4f21ceba106a7392f26dd"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/preprocessor_config.json",
+      "bytes": 339,
+      "sha256": "a6a76d28c93edb273669eb9e0b0636a2bddbb1272c3261e47b7ca6dfdbac1b8d"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/special_tokens_map.json",
+      "bytes": 2173,
+      "sha256": "98bdf3ec5b32e31575b02f64b0a32bde7c0449075d34484a7df9bdd3cdeb9fb9"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/tokenizer.json",
+      "bytes": 2405679,
+      "sha256": "5eb60cec1e77aeeb6869a2bb5a8e01a84c3fe5d072d75369343021fe6f5310d0"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/tokenizer_config.json",
+      "bytes": 282662,
+      "sha256": "93879c3dccdd4b976f709acd85b44778873f30c275e67026f30ca1e4c975230c"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/vocab.json",
+      "bytes": 999186,
+      "sha256": "f6bd25a65e4e63ca31360e9fb11c7e4f9a391a78385d640acd814092dd6eee4f"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/onnx/encoder-00.data",
+      "bytes": 20000000,
+      "sha256": "80b16c3f1df9b906ead065a1828bd5dc3d842a7d12cc481ae03399fa341f0f71"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/onnx/encoder-01.data",
+      "bytes": 3201320,
+      "sha256": "5dbc1198300c5614c490abc52ca3e74ce940ff5914d3be93d949bac91f863010"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/onnx/decoder-00.data",
+      "bytes": 20000000,
+      "sha256": "5844b3accd0222dafd3b24914da97432fe35e98f3ab4af8e6747a8e1bea4c8c6"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/onnx/decoder-01.data",
+      "bytes": 20000000,
+      "sha256": "f7cd3bef7976a173c8a3083cfa06a91b2166a77f9c05f65057e8c2e41fc3e86b"
+    },
+    {
+      "path": "vendor/whisper/models/whisper-base.en/onnx/decoder-02.data",
+      "bytes": 13692803,
+      "sha256": "1fc19df7caa1825527f309e318fece44082b81cd86cb89ff225ddda0f5e32659"
+    },
+    {
+      "path": "vendor/whisper/transformers.min.js",
+      "bytes": 888173,
+      "sha256": "aa5002b70e789798da263f5f99c62bd3e8fcd0c119258a493c40c180648365fa"
+    },
+    {
+      "path": "vendor/whisper/ort-wasm-simd-threaded.jsep.mjs",
+      "bytes": 44484,
+      "sha256": "08fb86ec433c78bfb032c5d84a68b8e8e5a8d81268fa39e24314179a5767a5b9"
+    },
+    {
+      "path": "vendor/whisper/ort-wasm-simd-threaded.jsep.wasm",
+      "bytes": 21596019,
+      "sha256": "c46655e8a94afc45338d4cb2b840475f88e5012d524509916e505079c00bfa39"
+    }
+  ],
+  "modelBytes": 81131503,
+  "totalBytes": 103660179,
+  "sources": {
+    "model": "https://huggingface.co/onnx-community/whisper-base.en/tree/51eefc0af78b103839eda9e7e4f4186acc6517fe",
+    "runtime": "https://www.npmjs.com/package/@huggingface/transformers/v/3.8.1"
+  },
+  "packaging": "Original ONNX weights unchanged. Encoder and decoder split into <=20 MB files and reconstructed via customCache. Shares the local runtime with tiny.en."
+}

@@ -1,0 +1,56 @@
+{
+  "version": "1.2.0",
+  "sampleRate": 16000,
+  "numThreads": 1,
+  "sampleText": "I would like to practice my English today. Could you help me find the library?",
+  "runtimeVersion": "whisper.cpp 1.8.2 / Emscripten 3.1.74 / SIMD single-thread",
+  "model": "Whisper base.en (Q5_1)",
+  "quantization": "Q5_1",
+  "modelParts": [
+    "vendor/whisper-cpp/model-00.data",
+    "vendor/whisper-cpp/model-01.data",
+    "vendor/whisper-cpp/model-02.data"
+  ],
+  "modelBytes": 59721011,
+  "modelSha256": "4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f",
+  "assets": [
+    {
+      "path": "vendor/whisper-cpp/model-00.data",
+      "bytes": 20000000,
+      "sha256": "811bc2e865c9bd2208e31b3443ed555e1b09530143597ce63409cbd983135ad2"
+    },
+    {
+      "path": "vendor/whisper-cpp/model-01.data",
+      "bytes": 20000000,
+      "sha256": "d47c0d6f0b0cc50d17b4b4fa0c898196030623cc091bc52691dae2721abd6cdf"
+    },
+    {
+      "path": "vendor/whisper-cpp/model-02.data",
+      "bytes": 19721011,
+      "sha256": "1fe531a8b5ff1c9644d1f0b1f32fb5f2e114b9e2934a9494f0c2dfe44950f4b4"
+    },
+    {
+      "path": "vendor/whisper-cpp/whisper-cpp.mjs",
+      "bytes": 17085,
+      "sha256": "06cb0b4842abd9bae0d9a28956a3df07fefd179f0b8e500b97475c06d7e8cdc9"
+    },
+    {
+      "path": "vendor/whisper-cpp/whisper-cpp.wasm",
+      "bytes": 1108588,
+      "sha256": "5f36c9d361d1f218709f1ade418b94e1338f5cee4e442a8323e68cf49e053b76"
+    }
+  ],
+  "totalBytes": 60846684,
+  "sources": {
+    "model": "https://huggingface.co/ggerganov/whisper.cpp/tree/5359861c739e955e79d9a303bcbc70fb988958b1",
+    "runtime": "https://github.com/ggml-org/whisper.cpp/tree/v1.8.2"
+  },
+  "build": {
+    "simd": true,
+    "pthreads": false,
+    "initialMemoryBytes": 134217728,
+    "maximumMemoryBytes": 1073741824,
+    "bridge": "tools/whisper-cpp-bridge.cpp"
+  },
+  "packaging": "Original GGML Q5_1 weights unchanged. Model split into <=20 MB shards and loaded directly into WASM memory. Custom single-thread bridge passes initial_prompt into whisper_full_params."
+}

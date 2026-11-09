@@ -33,10 +33,17 @@
       </section>
 
       <section class="engine-panel" aria-label="切换识别引擎">
-        <div class="engine-heading"><span class="eyebrow">CHOOSE YOUR ENGINE</span><span>同一段示例，两种本地方案</span></div>
+        <div class="engine-heading"><span class="eyebrow">CHOOSE YOUR ENGINE</span><span>同一段示例，四种本地配置</span></div>
         <div class="engine-tabs" role="group" aria-label="识别引擎">
           <button id="sherpaEngine" type="button" data-engine="sherpa" aria-pressed="true"><strong>sherpa-onnx · Zipformer</strong><span>流式识别 · 边说边出字</span></button>
-          <button id="whisperEngine" type="button" data-engine="whisper" aria-pressed="false"><strong>Transformers.js · Whisper tiny.en</strong><span>短句分段 · 定期更新文字</span></button>
+          <button id="whisperEngine" type="button" data-engine="whisper" aria-pressed="false"><strong>Transformers.js · Whisper tiny.en q8</strong><span>短句分段 · 定期更新文字</span></button>
+          <button id="whisperBaseEngine" type="button" data-engine="whisperBase" aria-pressed="false"><strong>Transformers.js · Whisper base.en q8</strong><span>更大英文模型 · 短句分段</span></button>
+          <button id="whisperCppEngine" type="button" data-engine="whisperCpp" aria-pressed="false"><strong>whisper.cpp · base.en Q5_1</strong><span>更小模型文件 · 支持 initial_prompt</span></button>
+        </div>
+        <div id="promptPanel" class="prompt-panel" hidden>
+          <label for="initialPrompt">initial_prompt <span>可选 · whisper.cpp</span></label>
+          <textarea id="initialPrompt" rows="3" maxlength="2000" spellcheck="false" placeholder="例如：Vocabulary: photosynthesis, chlorophyll, mitochondria."></textarea>
+          <p>为本轮识别提供词汇或上下文，留空即可正常识别。点击开始录音或自检时应用；长提示会由模型按 token 上限截取。它可能影响结果，不是强制热词或发音评分。</p>
         </div>
         <p id="engineDescription">选择一个引擎后加载模型。切换会关闭上一个引擎，保留最近的对照结果。</p>
       </section>
@@ -68,7 +75,7 @@
         </div>
       </section>
 
-      <section class="comparison-section" aria-label="两种引擎最近一次结果">
+      <section class="comparison-section" aria-label="四种配置最近一次结果">
         <div class="summary-caption"><span class="eyebrow">SIDE BY SIDE</span><span>本次打开页面期间保留</span></div>
         <div id="comparisonResults" class="comparison-grid"></div>
         <p id="comparisonHint" class="comparison-hint">依次切换引擎并点击“示例音频自检”，即可用同一段英语对照。</p>
@@ -88,7 +95,7 @@
         </details>
       </section>
 
-      <footer class="site-footer"><p><span class="small-dot"></span> 模型在你的设备上运行。录音不会发送到服务器。</p><span>Say it. / English speech demo <span id="versionLabel">v1.1.0</span></span></footer>
+      <footer class="site-footer"><p><span class="small-dot"></span> 模型在你的设备上运行。录音不会发送到服务器。</p><span>Say it. / English speech demo <span id="versionLabel">v1.2.0</span></span></footer>
     </main>
   </div>
   <noscript>此演示需要启用 JavaScript 才能在浏览器中运行语音识别模型。</noscript>

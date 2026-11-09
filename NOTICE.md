@@ -18,3 +18,11 @@ The self-check audio was generated locally with Microsoft Zira Desktop and the f
 - **ONNX Runtime Web 1.22.0 development build** — Microsoft Corporation, MIT License. The exact runtime dependency is pinned by Transformers.js 3.8.1. See `vendor/whisper/LICENSE-onnxruntime` and `vendor/whisper/ThirdPartyNotices-onnxruntime.txt` for the v1.22 license and third-party notices.
 
 The comparison engine does not use a remote inference provider. The included tokenizer, configuration, JavaScript, WASM and ONNX resources are loaded from the same static site.
+
+## Additional base.en comparisons (v1.2.0)
+
+- **Whisper base.en ONNX q8** — OpenAI Whisper, MIT License; ONNX conversion/quantization by ONNX Community / Xenova, fixed revision `51eefc0af78b103839eda9e7e4f4186acc6517fe`. Upstream card: `vendor/whisper/models/whisper-base.en/README.md`; license: `vendor/whisper/LICENSE-whisper`. The original encoder and merged decoder bytes are unchanged and split into <=20 MB shards for GitHub uploads. Runtime and tokenizer licensing is as above. Provenance and hashes: `whisper-base-manifest.json`.
+- **whisper.cpp v1.8.2 and bundled GGML** — The ggml authors, MIT License. Source: https://github.com/ggml-org/whisper.cpp/tree/v1.8.2 ; license: `vendor/whisper-cpp/LICENSE-whisper.cpp`. Built with Emscripten 3.1.74, WASM SIMD, CPU single-thread, no pthreads. The included `tools/whisper-cpp-bridge.cpp` passes the optional user prompt into `whisper_full_params.initial_prompt`; `tools/configure-whisper-cpp.cjs` documents the build changes. Generated runtime glue retains the Emscripten licensing described above.
+- **Whisper base.en GGML Q5_1** — OpenAI Whisper, MIT License, quantized distribution by ggerganov/whisper.cpp. Source: https://huggingface.co/ggerganov/whisper.cpp/tree/5359861c739e955e79d9a303bcbc70fb988958b1 ; license: `vendor/whisper-cpp/LICENSE-whisper`. Original `ggml-base.en-q5_1.bin` is split without editing its weights. Original SHA-256 and shard hashes: `whisper-cpp-manifest.json`.
+
+All four configurations run on-device. Audio and prompts are not sent to an inference service. This package uses CPU WASM; it does not incorporate native Apple Metal/Core ML acceleration.

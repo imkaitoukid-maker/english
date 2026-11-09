@@ -1,6 +1,6 @@
-const CACHE = 'say-it-1.1.0';
+const CACHE = 'say-it-1.2.0';
 const BASE = new URL('./', self.location.href);
-const SHELL = ['./index.html','./styles.css','./app.js','./audio-utils.js','./capture-worklet.js','./recognizer-worker.js','./whisper-worker.js','./icon.svg','./sample.wav','./asset-manifest.json','./whisper-manifest.json'];
+const SHELL = ['./index.html','./styles.css','./app.js','./audio-utils.js','./capture-worklet.js','./recognizer-worker.js','./whisper-worker.js','./whisper-cpp-worker.js','./whisper-session.js','./icon.svg','./sample.wav','./asset-manifest.json','./whisper-manifest.json','./whisper-base-manifest.json','./whisper-cpp-manifest.json'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL.map(path => new URL(path, BASE).href))).then(() => self.skipWaiting()));
 });
@@ -18,7 +18,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.origin !== BASE.origin || !url.pathname.startsWith(BASE.pathname)) return;
   const relative = url.pathname.slice(BASE.pathname.length);
-  const known = SHELL.includes('./' + relative) || /^vendor\/model-\d{2}\.data$/.test(relative) || relative.startsWith('vendor/whisper/') || ['','vendor/sherpa-onnx-asr.js','vendor/sherpa-onnx-wasm-main-asr.js','vendor/sherpa-onnx-wasm-main-asr.wasm'].includes(relative);
+  const known = SHELL.includes('./' + relative) || /^vendor\/model-\d{2}\.data$/.test(relative) || (relative.startsWith('vendor/whisper/') || relative.startsWith('vendor/whisper-cpp/')) || ['','vendor/sherpa-onnx-asr.js','vendor/sherpa-onnx-wasm-main-asr.js','vendor/sherpa-onnx-wasm-main-asr.wasm'].includes(relative);
   if (!known) return;
   const key = event.request.mode === 'navigate' ? new URL('./index.html', BASE).href : event.request;
   event.respondWith((async () => {

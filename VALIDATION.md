@@ -1,5 +1,34 @@
 # Verification record
 
+## Four configurations, v1.2.0 (2026-11-09)
+
+The following checks passed with actual model inference in Windows desktop Chrome. No iPad Air 3 or Safari performance measurement was performed.
+
+- Full 6.105-second self-check transcription with Zipformer, Transformers.js tiny.en q8, Transformers.js base.en q8, and whisper.cpp base.en Q5_1. All outputs contain the complete spoken content; punctuation/spelling differences remain unedited.
+- Only selected model/runtime assets download; switching terminates the previous engine Worker, and all four latest-result cards retain their output.
+- Real base.en q8 and Q5_1 microphone API → AudioWorklet → Worker → interim text → finalization. Automated microphone input uses the bundled WAV through Chrome's fake audio device, not personal recordings.
+- Final Q5_1 buffering regression uses a real 48 kHz AudioContext and ScriptProcessor fallback: 7.04 seconds of captured input are preserved, including 770,048 PCM bytes held while synchronous inference is busy. Clicking Finish stops microphone tracks promptly, forwards held PCM with the finish request, and returns the complete sentence. Only two inference calls occur, including finalization, instead of replaying multiple stale interim windows.
+- `initial_prompt` entered in the page reaches `whisper_full_params.initial_prompt` in the compiled C++ bridge. Different prompts and a blank prompt work in subsequent runs without reloading the model. The native bridge confirms the received string in `appliedPrompt`; prompt text is not appended to output.
+- Prompt and engine controls lock during processing. Microphone tracks stop at the end of capture. Exported diagnostics retain all four configurations and the applied prompt.
+- Real offline page reload and inference for both new models using cached ESM, WASM, configuration and model shards.
+- Q5_1 initialization and inference succeed with `crossOriginIsolated === false` and a non-shared WASM memory buffer. The custom build does not require pthreads, SharedArrayBuffer or isolation response headers.
+- No page/console errors or external model/CDN/inference requests in integration testing.
+- Four-way controls, comparison cards and prompt input fit 834×1112, 1112×834, 820×1180 and 375×812 CSS viewports. These are layout checks, not Safari device tests.
+- All 43 unique runtime/model assets match their manifest byte counts and SHA-256 values; reconstructed model files match the originals. Every distributable asset is below 25 MiB; unique runtime/model resources total about 297.1 MB.
+
+Representative self-check measurements after model preparation in this desktop run:
+
+| Configuration | Compute / 6.105 s input | Compute ratio |
+| --- | --- | --- |
+| Transformers.js base.en q8 | about 4.2 s | 0.69 |
+| whisper.cpp base.en Q5_1, this single-thread build | about 51.9 s | 8.50 |
+
+This Q5_1 build is substantially slower in this test despite its smaller download (60.8 MB versus 103.7 MB cold-load resources). These figures are specific to this build, quantization, input and machine. They are not a universal comparison of the libraries, a real-time guarantee, or an iPad result. The browser page keeps timings visible so users can assess actual device behavior.
+
+The Q5_1 buffering test's final WASM linear memory capacity was 758,120,448 bytes (about 723 MiB). This is the grown linear memory buffer, not physical memory usage or the browser page's peak memory. A smaller model download does not imply low total runtime memory; iPad Safari still requires a device test.
+
+Earlier verification records follow for the original capture and resampling implementation.
+
 Verified locally on 2026-11-09 with desktop Chrome on Windows. This is **not** an iPad Air 3 / iPad Safari performance result.
 
 Passed:
